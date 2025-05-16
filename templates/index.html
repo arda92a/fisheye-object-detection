@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fisheye Camera Object Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        };
+    </script>
+    <style>
+        html.dark ::-webkit-scrollbar {
+            width: 8px;
+        }
+        html.dark ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        html.dark ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <header class="py-6 bg-white dark:bg-gray-800 shadow">
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold">Fisheye Camera Object Detection</h1>
+                <p class="text-gray-600 dark:text-gray-400">Detect objects in fisheye images and videos using YOLO</p>
+            </div>
+            <button id="theme-toggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                <svg id="sun-icon" class="w-6 h-6 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="moon-icon" class="w-6 h-6 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+    <main class="container mx-auto px-4 py-8">
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="fixed inset-0 bg-gray-500/50 flex items-center justify-center hidden z-50">
+            <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-2 text-gray-700 dark:text-gray-300">Processing...</p>
+            </div>
+        </div>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+            {% for message in messages %}
+            <div class="p-4 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-lg flex justify-between items-center">
+                {{ message }}
+                <button onclick="this.parentElement.remove()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">×</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Model upload and selection -->
+        <section class="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <h2 class="text-2xl font-semibold mb-4">Step 1: Load YOLO Model</h2>
+            {% if not model_loaded %}
+            <div class="p-4 mb-4 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-lg">
+                <strong>No model loaded!</strong> Please upload or select a model first.
+            </div>
+            {% else %}
+            <div class="p-4 mb-4 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-lg">
+                <strong>Model loaded successfully!</strong> Ready to process images.
+            </div>
+            {% endif %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Upload new model -->
+                <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h3 class="text-xl font-medium mb-3">Upload New Model</h3>
+                    <form action="/upload_model" method="post" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="model_file" class="block text-sm font-medium mb-1">Select YOLO model file (.pt, .pth, .weights)</label>
+                            <input type="file" id="model_file" name="model_file" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="model_type" class="block text-sm font-medium mb-1">Model Type</label>
+                            <select id="model_type" name="model_type" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500" required>
+                                <option value="yolo" selected>YOLO (Object Detection)</option>
+                                <option value="segmentation">YOLO (Segmentation)</option>
+                                <option value="retinanet">RetinaNet</option>
+                                <option value="faster_rcnn">Faster R-CNN</option>
+                            </select>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Select the type of model you are uploading</p>
+                        </div>
+                        <div class="mb-4">
+                            <label for="threshold" class="block text-sm font-medium mb-1">Confidence Threshold</label>
+                            <input type="number" id="threshold" name="threshold" value="0.5" min="0.1" max="0.9" step="0.1" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Upload & Load Model</button>
+                    </form>
+                </div>
+                <!-- Select existing model -->
+                <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <h3 class="text-xl font-medium mb-3">Select Existing Model</h3>
+                    {% if available_models %}
+                    <form action="/select_model" method="post">
+                        <div class="mb-4">
+                            <label for="model_filename" class="block text-sm font-medium mb-1">Choose a model</label>
+                            <select id="model_filename" name="model_filename" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 max-h-40 overflow-y-auto" required>
+                                <option value="" selected disabled>Select a model</option>
+                                {% for model in available_models %}
+                                <option value="{{ model }}">{{ model }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="model_type" class="block text-sm font-medium mb-1">Model Type</label>
+                            <select id="model_type" name="model_type" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500" required>
+                                <option value="yolo" selected>YOLO (Object Detection)</option>
+                                <option value="segmentation">YOLO (Segmentation)</option>
+                                <option value="retinanet">RetinaNet</option>
+                                <option value="faster_rcnn">Faster R-CNN</option>
+                            </select>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Select the type of model you are uploading</p>
+                        </div>
+                        <div class="mb-4">
+                            <label for="threshold_select" class="block text-sm font-medium mb-1">Confidence Threshold</label>
+                            <input type="number" id="threshold_select" name="threshold" value="0.5" min="0.1" max="0.9" step="0.1" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Load Selected Model</button>
+                    </form>
+                    {% else %}
+                    <div class="p-4 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-lg">
+                        No models available. Please upload a model first.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- Image upload -->
+        <section class="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <h2 class="text-2xl font-semibold mb-4">Step 2: Upload Image(s)</h2>
+            <form id="image-upload-form" action="/upload_image" method="post" enctype="multipart/form-data">
+                <div class="mb-4">
+                    <label for="image_file" class="block text-sm font-medium mb-1">Select fisheye camera image(s) (.jpg, .jpeg, .png)</label>
+                    <input type="file" id="image_file" name="image_file" accept="image/jpeg,image/png" multiple class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <button type="submit" id="upload-image-btn" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition" {% if not model_loaded %}disabled{% endif %}>
+                    Upload & Process Image(s)
+                </button>
+                {% if not model_loaded %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Please load a model first</p>
+                {% endif %}
+            </form>
+        </section>
+
+        <!-- Video upload -->
+        <section class="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <h2 class="text-2xl font-semibold mb-4">Step 3: Upload Video</h2>
+            <form action="/upload_video" method="post" enctype="multipart/form-data">
+                <div class="mb-4">
+                    <label for="video_file" class="block text-sm font-medium mb-1">Select fisheye camera video (.mp4, .avi)</label>
+                    <input type="file" id="video_file" name="video_file" accept="video/mp4,video/avi" class="w-full p-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <button type="submit" class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition" {% if not model_loaded %}disabled{% endif %}>
+                    Upload & Process Video
+                </button>
+                {% if not model_loaded %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Please load a model first</p>
+                {% endif %}
+            </form>
+        </section>
+
+        <!-- API documentation -->
+        <section class="p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <h2 class="text-2xl font-semibold mb-4">API Documentation</h2>
+            <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <h3 class="text-xl font-medium mb-2">POST /api/detect</h3>
+                <p class="mb-2">Send a POST request with an image file to detect objects.</p>
+                <h4 class="text-lg font-medium mb-1">Request</h4>
+                <pre class="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm"><code>curl -X POST -F "image=@/path/to/your/image.jpg" http://localhost:5000/api/detect</code></pre>
+                <h4 class="text-lg font-medium mb-1 mt-2">Response</h4>
+                <pre class="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm"><code>{
+  "success": true,
+  "detections": [
+    {
+      "class_name": "Car",
+      "confidence": 0.95,
+      "bbox": [100, 200, 300, 400]
+    },
+    ...
+  ]
+}</code></pre>
+            </div>
+        </section>
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Dark mode script loaded');
+            const html = document.documentElement;
+            const themeToggle = document.getElementById('theme-toggle');
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+
+            if (!themeToggle || !sunIcon || !moonIcon) {
+                console.error('Dark mode elements not found');
+                return;
+            }
+
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                html.classList.add('dark');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                html.classList.remove('dark');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+
+            themeToggle.addEventListener('click', () => {
+                console.log('Theme toggle clicked');
+                html.classList.toggle('dark');
+                const isDark = html.classList.contains('dark');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                sunIcon.classList.toggle('hidden', !isDark);
+                moonIcon.classList.toggle('hidden', isDark);
+            });
+
+            // Loading spinner for image upload
+            const imageUploadForm = document.getElementById('image-upload-form');
+            const uploadImageBtn = document.getElementById('upload-image-btn');
+            const loadingSpinner = document.getElementById('loading-spinner');
+
+            if (imageUploadForm && uploadImageBtn && loadingSpinner) {
+                imageUploadForm.addEventListener('submit', () => {
+                    console.log('Image upload form submitted');
+                    loadingSpinner.classList.remove('hidden');
+                    uploadImageBtn.disabled = true; // Disable button during processing
+                });
+            } else {
+                console.error('Image upload elements not found');
+            }
+        });
+    </script>
+</body>
+</html>
