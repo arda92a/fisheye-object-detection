@@ -28,7 +28,7 @@ Fisheye cameras introduce **extreme spatial distortion**, making object detectio
 - **Frameworks:** PyTorch, Ultralytics YOLOv8
 - **Folders:**
   ```
-  Website/
+  fisheye_object_detection/
   ├── app.py
   ├── templates/
   │   ├── index.html
@@ -75,7 +75,7 @@ Fisheye cameras introduce **extreme spatial distortion**, making object detectio
 
 ### 🔧 Installation
 ```bash
-git clone https://github.com/yourusername/fisheye-object-detection.git
+git clone https://github.com/yourusername/fisheye-object-detection.git](https://github.com/arda92a/fisheye-object-detection.git
 cd fisheye-object-detection
 pip install -r requirements.txt
 ```
@@ -108,14 +108,6 @@ The app will be available at `http://127.0.0.1:5000`.
 - Design **distortion-specific data augmentations**
 - Explore **transformer-based segmentation** tailored to radial distortion
 - Collect more diverse fisheye datasets
-
-## 🧾 Ethical Statement
-
-All experiments, code, and models were developed individually with academic integrity. No plagiarism or unauthorized reuse was involved.
-
-## 📚 References
-
-Key references include YOLOv8, RetinaNet, Faster R-CNN, and fisheye-specific detection papers. Full citations available in the [PDF report](./Fisheye_Camera_Object_Detection.pdf).
 
 ## 🧠 Author
 
