@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Fisheye Camera Object Detection
 
 This project provides a Flask-based web application for object detection and segmentation in fisheye camera images and videos. It supports multiple deep learning models, including YOLO (for object detection and segmentation), RetinaNet, and Faster R-CNN, to detect and classify objects such as bikes, buses, cars, pedestrians, and trucks. The application allows users to upload images or videos, select or upload pre-trained models, and visualize detection results with bounding boxes and optional segmentation masks. Ground truth annotations in YOLO format can also be visualized for comparison.
@@ -180,7 +179,7 @@ Fisheye cameras introduce **extreme spatial distortion**, making object detectio
 ## 🧪 Experimental Results
 
 ### 🔢 Overall Performance
->>>>>>> 6a3d5b8a8906b45a525508317c43ca53e03eb4ac
+
 
 | Metric          | YOLOv8 | Faster R-CNN | RetinaNet | YOLOv8-Seg |
 |-----------------|--------|--------------|-----------|------------|
@@ -191,7 +190,7 @@ Fisheye cameras introduce **extreme spatial distortion**, making object detectio
 <<<<<<< HEAD
 =======
 | IoU@0.5 (%)     | 37.29  | 16.87        | 29.68     | **57.3**   |
->>>>>>> 6a3d5b8a8906b45a525508317c43ca53e03eb4ac
+
 
 ### ✅ Key Findings
 - **YOLOv8-Segmentation** significantly outperformed all other models.
