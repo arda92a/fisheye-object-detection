@@ -57,7 +57,7 @@ This project provides a Flask-based web application for object detection and seg
    ```
 
 2. **Prepare Model Files**:
-   Place pre-trained model files (`.pt`, `.pth`, `.weights`) in the `models/` directory. Example models included:
+   Place pre-trained model files from (https://drive.google.com/drive/folders/1f5sj08ztjm7DjV1sYxSHa-dVm-vnA56z?usp=sharing) (`.pt`, `.pth`, `.weights`) in the `models/` directory. Example models included:
    - `faster_rcnn_model.pth`
    - `retinanet_model.pth`
    - `yolo_object_detection.pt`
