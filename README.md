@@ -125,59 +125,6 @@ The `training_codes/` directory contains scripts for training the supported mode
 
 ## 🧪 Experimental Results
 
-### 🔢 Overall Performance (confidence level = 0.7)
-=======
-
-# 🐟 Fisheye Camera Object Detection Using Deep Learning
-
-A Computer Vision project focused on detecting objects in **fisheye camera images** using state-of-the-art object detection and segmentation models. This work includes a **Flask web app** that enables real-time predictions on **images, image batches, and videos**, with support for multiple model selections.
-
-## 📌 Project Overview
-
-Fisheye cameras introduce **extreme spatial distortion**, making object detection more complex. To tackle this, we benchmarked several deep learning models on the **FishEye8K** dataset — containing 8,000 images with 157,000 object annotations — across five classes:
-- Car
-- Pedestrian
-- Truck
-- Bus
-- Bike
-
-### 🔍 Models Evaluated
-| Model          | Type        | Highlights                               |
-|----------------|-------------|-------------------------------------------|
-| YOLOv8         | One-stage   | Real-time, balanced detection             |
-| Faster R-CNN   | Two-stage   | High precision, poor recall               |
-| RetinaNet      | One-stage   | Focal Loss, moderate overall performance  |
-| YOLOv8-Seg     | Segmentation| Best performance, pixel-level accuracy    |
-
-## 🌐 Web Application
-
-### 🛠️ Tech Stack
-- **Backend:** Python, Flask
-- **Frontend:** HTML/CSS (Jinja2 templating)
-- **Frameworks:** PyTorch, Ultralytics YOLOv8
-- **Folders:**
-  ```
-  fisheye_object_detection/
-  ├── app.py
-  ├── templates/
-  │   ├── index.html
-  │   ├── results.html
-  │   ├── batch_results.html
-  │   └── video_results.html
-  ├── static/
-  │   └── uploads/
-  └── models/
-  ```
-
-### 🖼️ Features
-- Select models (YOLOv8, Faster R-CNN, RetinaNet, YOLOv8-Seg)
-- Upload images (single or batch)
-- Upload videos for detection
-- Visual feedback for predicted results
-- Segmentation overlay for YOLOv8-Seg
-
-## 🧪 Experimental Results
-
 ### 🔢 Overall Performance
 
 
