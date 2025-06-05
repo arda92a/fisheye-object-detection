@@ -60,12 +60,14 @@
             <h2 class="text-2xl font-semibold mb-4">Image Detection Results</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="text-center">
-                    <img src="data:image/jpeg;base64,{{ original_image }}" alt="Original" class="w-full h-auto rounded-lg shadow">
-                    <p class="mt-2 font-medium">Original Image</p>
+                    <img src="data:image/jpeg;base64,{{ original_gt_image }}" alt="Original with Ground Truth" class="w-full h-auto rounded-lg shadow">
+                    <p class="mt-2 font-medium">Original with Ground Truth Boxes</p>
+                    <a href="data:image/jpeg;base64,{{ original_gt_image }}" download="original_gt_image.jpg" class="inline-block mt-2 py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Download Ground Truth Image</a>
                 </div>
                 <div class="text-center">
                     <img src="data:image/jpeg;base64,{{ processed_image }}" alt="Processed" class="w-full h-auto rounded-lg shadow">
                     <p class="mt-2 font-medium">Detection Result</p>
+                    <a href="data:image/jpeg;base64,{{ processed_image }}" download="processed_image.jpg" class="inline-block mt-2 py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">Download Processed Image</a>
                 </div>
             </div>
             <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">

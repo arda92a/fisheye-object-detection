@@ -1,10 +1,3 @@
-"""
-Fisheye Camera Object Detection Web Application
-----------------------------------------------
-A Flask web application to visualize YOLO object detection and segmentation 
-for fisheye camera images.
-"""
-
 import os
 import uuid
 from PIL import Image
@@ -25,9 +18,10 @@ app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__fil
 app.config['MODEL_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 16  # 16 MB max upload size
 
-# Create upload folder if it doesn't exist
+# Create upload and labels folders if they don't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['MODEL_FOLDER'], exist_ok=True)
+os.makedirs(os.path.join(os.path.dirname(app.config['UPLOAD_FOLDER']), 'labels'), exist_ok=True)
 
 # Define color scheme and class mappings
 COLOR_SCHEME = {
@@ -68,7 +62,7 @@ class FisheyeDetector:
         """
         self.model_type = model_type.lower()
         self.threshold = threshold
-        self.model_path = model_path  # Store model path for async tasks
+        self.model_path = model_path
         
         try:
             if self.model_type == "yolo":
@@ -131,7 +125,7 @@ class FisheyeDetector:
             except Exception as e:
                 raise ValueError(f"Failed to open image: {str(e)}")
         else:
-            original_image = image_path  # For video frames
+            original_image = image_path
             
         img_height, img_width = original_image.shape[:2]
         
@@ -367,14 +361,87 @@ def allowed_video_file(filename):
     ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
 
-def image_to_base64(img):
-    """Convert an image to base64 for HTML display."""
+def image_to_base64(img, format="JPEG", quality=95):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(img_rgb)
     buffer = io.BytesIO()
-    pil_img.save(buffer, format="JPEG")
+    if format == "JPEG":
+        pil_img.save(buffer, format="JPEG", quality=quality)
+    else:
+        pil_img.save(buffer, format="PNG")  # PNG for lossless
     img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
     return img_str
+
+def draw_ground_truth_boxes(image, label_path, class_names):
+    """
+    Draw ground truth bounding boxes from a YOLO-format .txt file onto the image.
+    
+    Args:
+        image: Numpy array of the image
+        label_path: Path to the .txt file containing bounding box annotations
+        class_names: Dictionary mapping class IDs to class names
+    
+    Returns:
+        Image with ground truth bounding boxes drawn
+    """
+    img_height, img_width = image.shape[:2]
+    output_image = image.copy()
+    
+    if not os.path.exists(label_path):
+        return output_image
+    
+    try:
+        with open(label_path, 'r') as f:
+            lines = f.readlines()
+        
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) < 5:
+                continue
+            class_id, center_x, center_y, width, height = map(float, parts[:5])
+            class_id = int(class_id)+1
+            
+            if class_id not in class_names_object_detection:
+                continue
+                
+            class_name = class_names_object_detection[class_id]
+            color = COLOR_SCHEME.get(class_name, (255, 255, 0))  # Yellow for ground truth
+            
+            # Convert normalized YOLO coordinates to pixel values
+            x_center = center_x * img_width
+            y_center = center_y * img_height
+            box_width = width * img_width
+            box_height = height * img_height
+            
+            # Calculate bounding box coordinates
+            x1 = int(x_center - box_width / 2)
+            y1 = int(y_center - box_height / 2)
+            x2 = int(x_center + box_width / 2)
+            y2 = int(y_center + box_height / 2)
+            
+            # Draw rectangle and label
+            cv2.rectangle(
+                output_image,
+                (x1, y1),
+                (x2, y2),
+                color,
+                2
+            )
+            label_text = f"{class_name} (GT)"
+            cv2.putText(
+                output_image,
+                label_text,
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                color,
+                2
+            )
+        
+        return output_image
+    except Exception as e:
+        print(f"Error reading label file {label_path}: {str(e)}")
+        return output_image
 
 @app.route('/')
 def index():
@@ -462,18 +529,35 @@ def upload_image():
         if image_file.filename == '':
             continue
         if image_file and allowed_file(image_file.filename):
-            original_filename = secure_filename(f"{uuid.uuid4()}_{image_file.filename}")
+            # Remove UUID prefix for label file lookup
+            original_filename_no_uuid = image_file.filename
+            uuid_prefix = str(uuid.uuid4())
+            original_filename = secure_filename(f"{uuid_prefix}_{original_filename_no_uuid}")
             original_path = os.path.join(app.config['UPLOAD_FOLDER'], original_filename)
             image_file.save(original_path)
             
             try:
                 original_image, processed_image, metadata = detector.process_image(original_path)
-                processed_filename = secure_filename(f"{uuid.uuid4()}_processed_{image_file.filename}")
+                
+                # Check for corresponding label file
+                label_filename = os.path.splitext(original_filename_no_uuid)[0] + '.txt'
+                label_path = os.path.join(os.path.dirname(app.config['UPLOAD_FOLDER']), 'labels', label_filename)
+                class_names = MODEL_CLASS_NAMES if detector.model_type == "segmentation" else class_names_object_detection
+                original_image_with_gt = draw_ground_truth_boxes(original_image, label_path, class_names)
+                
+                # Save the original image with ground truth boxes
+                # Save as PNG for lossless quality
+                original_gt_filename = secure_filename(f"{uuid_prefix}_gt_{original_filename_no_uuid.replace('.jpg', '.png').replace('.jpeg', '.png')}")
+                original_gt_path = os.path.join(app.config['UPLOAD_FOLDER'], original_gt_filename)
+                cv2.imwrite(original_gt_path, original_image_with_gt)  # PNG is lossless by default
+
+                processed_filename = secure_filename(f"{uuid_prefix}_processed_{original_filename_no_uuid.replace('.jpg', '.png').replace('.jpeg', '.png')}")
                 processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
-                cv2.imwrite(processed_path, processed_image)
+                cv2.imwrite(processed_path, processed_image)  # PNG is lossless by default
                 
                 results.append({
                     'original_filename': original_filename,
+                    'original_gt_filename': original_gt_filename,
                     'processed_filename': processed_filename,
                     'metadata': metadata
                 })
@@ -482,6 +566,7 @@ def upload_image():
     
     if len(results) == 1:
         session['original_image_path'] = results[0]['original_filename']
+        session['original_gt_image_path'] = results[0]['original_gt_filename']
         session['processed_image_path'] = results[0]['processed_filename']
         session['detection_metadata'] = results[0]['metadata']
         session['model_type'] = detector.model_type
@@ -566,15 +651,18 @@ def results():
         return redirect(url_for('index'))
         
     original_path = os.path.join(app.config['UPLOAD_FOLDER'], session['original_image_path'])
+    original_gt_path = os.path.join(app.config['UPLOAD_FOLDER'], session['original_gt_image_path'])
     processed_path = os.path.join(app.config['UPLOAD_FOLDER'], session['processed_image_path'])
     metadata = session.get('detection_metadata', {"detections": []})
     model_type = session.get('model_type', 'unknown')
     
-    original_b64 = image_to_base64(cv2.imread(original_path))
-    processed_b64 = image_to_base64(cv2.imread(processed_path))
+    original_b64 = image_to_base64(cv2.imread(original_path), format="PNG")
+    original_gt_b64 = image_to_base64(cv2.imread(original_gt_path), format="PNG")
+    processed_b64 = image_to_base64(cv2.imread(processed_path), format="PNG")
     
     return render_template('results.html', 
                           original_image=original_b64,
+                          original_gt_image=original_gt_b64,
                           processed_image=processed_b64,
                           metadata=metadata,
                           model_type=model_type)
@@ -586,17 +674,19 @@ def batch_results():
         flash('No batch results to display')
         return redirect(url_for('index'))
         
-    # Preprocess images to base64
     batch_results = session['batch_results']
     for result in batch_results:
         original_path = os.path.join(app.config['UPLOAD_FOLDER'], result['original_filename'])
+        original_gt_path = os.path.join(app.config['UPLOAD_FOLDER'], result['original_gt_filename'])
         processed_path = os.path.join(app.config['UPLOAD_FOLDER'], result['processed_filename'])
         try:
             result['original_b64'] = image_to_base64(cv2.imread(original_path))
+            result['original_gt_b64'] = image_to_base64(cv2.imread(original_gt_path))
             result['processed_b64'] = image_to_base64(cv2.imread(processed_path))
         except Exception as e:
             flash(f'Error loading image {result["original_filename"]}: {str(e)}')
             result['original_b64'] = ''
+            result['original_gt_b64'] = ''
             result['processed_b64'] = ''
     
     model_type = session.get('model_type', 'unknown')

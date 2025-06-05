@@ -1,0 +1,9 @@
+flask
+torch
+torchvision
+opencv-python
+pillow
+numpy
+matplotlib
+ultralytics
+werkzeug
